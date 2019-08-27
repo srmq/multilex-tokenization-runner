@@ -1,31 +1,64 @@
-<project name="multilex-experiment" default="go" xmlns:ivy="antlib:org.apache.ivy.ant">
+<project name="multilex-experiment" default="go" xmlns:ivy="antlib:org.apache.ivy.ant" xmlns:git="antlib:com.rimerosolutions.ant.git">
     <property name="ivy.install.version" value="2.4.0"/>
     <property name="ivy.jar.dir" value="${basedir}/ivy"/>
     <property name="ivy.jar.file" value="${ivy.jar.dir}/ivy.jar"/>
     <property name="ivy.conf.dir" value="${ivy.jar.dir}/conf" />
-    
+  
     <target name="gen-ivy-settings" depends="install-ivy">
         <mkdir dir="${ivy.conf.dir}" />
         <echoxml file="${ivy.conf.dir}/ivy-public-resolvers.xml">
             <ivysettings>
                 <resolvers>
-                    <url name="sonatype-snapshots" m2compatible="true">
-                        <artifact pattern="https://oss.sonatype.org/content/repositories/snapshots/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"/>
-                    </url>
-                    <ibiblio name="public" m2compatible="true"/>            
+                    <chain name="default-chain">
+                        <ibiblio name="public" m2compatible="true"/>
+                        <url name="sonatype-snapshots" m2compatible="true">
+                            <artifact pattern="https://oss.sonatype.org/content/repositories/snapshots/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"/>
+                        </url>
+                    </chain>           
                 </resolvers>
             </ivysettings>
         </echoxml>
         <echoxml file="${ivy.conf.dir}/ivysettings.xml">
             <ivysettings>
-                <settings defaultResolver="public"/>
-                <include url="${ivy.conf.dir}/ivy-public-resolvers.xml"/>
+                <settings defaultResolver="default-chain"/>
+                <include file="${ivy.conf.dir}/ivy-public-resolvers.xml"/>
                 <include url="${ivy.default.settings.dir}/ivysettings-shared.xml"/>
                 <include url="${ivy.default.settings.dir}/ivysettings-local.xml"/>
                 <include url="${ivy.default.settings.dir}/ivysettings-main-chain.xml"/>
                 <include url="${ivy.default.settings.dir}/ivysettings-default-chain.xml"/>
             </ivysettings>
-        </echoxml>
+        </echoxml> 
+        <echoxml file="${ivy.conf.dir}/ivy-git-tasks.xml">
+            <ivy-module version="2.0">
+                <info organisation="srmq.org" module="ivy-git-tasks"/>
+
+                <configurations defaultconfmapping="default->default">
+                    <conf name="default" />
+                    <conf name="provided" description="they are provided by the env." />
+                    <conf name="compile" extends="default,provided" />
+                    <conf name="git-task" extends="default"/>
+                </configurations>
+
+                <dependencies>
+                    <dependency org="org.eclipse.jgit" 
+                                name="org.eclipse.jgit.ant" 
+                                rev="3.0.0.201306101825-r"  conf="git-task->default" />
+
+                    <dependency org="org.eclipse.jgit" 
+                                name="org.eclipse.jgit" 
+                                rev="3.0.0.201306101825-r" conf="git-task->default" />
+
+                    <dependency org="com.jcraft" 
+                                name="jsch" 
+                                rev="0.1.50" conf="git-task->default" />
+
+                    <dependency org="com.rimerosolutions.ant" 
+                                name="ant-git-tasks"
+                                rev="1.0.3-SNAPSHOT" 
+                                changing="true" conf="git-task->default" />
+                </dependencies>
+            </ivy-module>            
+        </echoxml> 
     </target>
     
     <target name="download-ivy" unless="skip.download">
@@ -47,10 +80,28 @@
         <taskdef resource="org/apache/ivy/ant/antlib.xml"
                  uri="antlib:org.apache.ivy.ant" classpathref="ivy.lib.path"/>
     </target>
-    
-    <target name="go" depends="gen-ivy-settings">
-        <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
-        <ivy:cachepath organisation="org.eclipse.jgit" module="org.eclipse.jgit.ant" revision="3.0.0.201306101825-r" pathid="lib.path.id" inline="true" /> 
+
+    <target name="go" depends="clone-repos">
         <echo message="Hello world!"/>
+    </target>
+
+    <target name="clean-repos" unless="skip.clean.repos">
+        <delete dir="supersense-tagger-service" />
+    </target>
+    
+    <target name="clone-repos" depends="gen-ivy-settings,clean-repos">
+        <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
+        <ivy:resolve file="${ivy.conf.dir}/ivy-git-tasks.xml" conf="git-task" />
+        <ivy:cachepath pathid="git.task.classpath" conf="git-task" />
+
+        <taskdef uri="antlib:com.rimerosolutions.ant.git" resource="com/rimerosolutions/ant/git/jgit-ant-lib.xml">
+            <classpath>
+                <path refid="git.task.classpath"/>
+            </classpath>
+        </taskdef>
+
+        <git:git directory="supersense-tagger-service" verbose="true">
+            <git:clone uri="https://github.com/srmq/supersense-tagger-service.git"/>
+        </git:git>
     </target>
 </project>
