@@ -92,6 +92,7 @@
     </target>
 
     <target name="mvn_unix_setup" if="isUnix" depends="install-maven">
+        <chmod file="${tools.home}/apache-maven-${maven3.install.version}/bin/mvn" perm="ugo+rx" />
         <property name="mvn.executable" value="sh" />
         <property name="mvn.args" value="-c" />
     </target>
