@@ -3,6 +3,18 @@
     <property name="ivy.jar.dir" value="${basedir}/ivy"/>
     <property name="ivy.jar.file" value="${ivy.jar.dir}/ivy.jar"/>
     <property name="ivy.conf.dir" value="${ivy.jar.dir}/conf" />
+    <property name="downloads.dir" value="${basedir}/downloads" />
+    <property name="maven3.install.version" value="3.6.1" />
+    <property name="maven3.zip.file" value="${downloads.dir}/maven3.zip" />
+    <property name="tools.home" value="${basedir}/tools" />
+
+    <condition property="isWindows">
+        <os family="windows" />
+    </condition>
+
+    <condition property="isUnix">
+        <os family="unix" />
+    </condition>    
   
     <target name="gen-ivy-settings" depends="install-ivy">
         <mkdir dir="${ivy.conf.dir}" />
@@ -60,6 +72,42 @@
             </ivy-module>            
         </echoxml> 
     </target>
+
+    <target name="download-maven" unless="skip.download">
+        <mkdir dir="${downloads.dir}"/>
+        <!-- download Maven from web site so that it can be used even without any special installation -->
+        <echo message="downloading Maven..."/>
+        <get src="https://archive.apache.org/dist/maven/maven-3/${maven3.install.version}/binaries/apache-maven-${maven3.install.version}-bin.zip"
+             dest="${maven3.zip.file}" usetimestamp="true"/>    
+    </target>
+
+    <target name="install-maven" depends="download-maven">
+        <mkdir dir="${tools.home}" />
+        <unzip src="${maven3.zip.file}" dest="${tools.home}" />
+    </target>
+
+    <target name="mvn_windows_setup" if="isWindows" depends="install-maven">
+        <property name="mvn.executable" value="cmd" />
+        <property name="mvn.args" value="/c" />
+    </target>
+
+    <target name="mvn_unix_setup" if="isUnix" depends="install-maven">
+        <property name="mvn.executable" value="sh" />
+        <property name="mvn.args" value="-c" />
+    </target>
+
+    <target name="run-mvn-goals" depends="mvn_windows_setup, mvn_unix_setup">
+        <exec dir="${exec_dir}" executable="${mvn.executable}">
+            <arg line="${mvn.args} '${tools.home}/apache-maven-${maven3.install.version}/bin/mvn ${p_goals}'" />
+        </exec>
+    </target>
+
+    <target name="supersense-tagger-service-package" depends="clone-repos">
+        <antcall target="run-mvn-goals">
+            <param name="exec_dir" value="${basedir}/supersense-tagger-service" />
+            <param name="p_goals" value="package"/>
+        </antcall>        
+    </target>    
     
     <target name="download-ivy" unless="skip.download">
         <mkdir dir="${ivy.jar.dir}"/>
