@@ -1,5 +1,6 @@
 <project name="multilex-experiment" default="go" xmlns:ivy="antlib:org.apache.ivy.ant" xmlns:git="antlib:com.rimerosolutions.ant.git">
     <property name="ivy.install.version" value="2.4.0"/>
+    <property name="virgo.install.version" value="3.7.2.RELEASE"/>
     <property name="ivy.jar.dir" value="${basedir}/ivy"/>
     <property name="ivy.jar.file" value="${ivy.jar.dir}/ivy.jar"/>
     <property name="ivy.conf.dir" value="${ivy.jar.dir}/conf" />
@@ -22,6 +23,9 @@
             <ivysettings>
                 <resolvers>
                     <chain name="default-chain">
+                        <url name="srmq-maven-repo" m2compatible="true">
+                            <artifact pattern="https://srmq-maven-repo.appspot.com/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"/>
+                        </url>
                         <ibiblio name="public" m2compatible="true"/>
                         <url name="sonatype-snapshots" m2compatible="true">
                             <artifact pattern="https://oss.sonatype.org/content/repositories/snapshots/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"/>
@@ -72,6 +76,17 @@
             </ivy-module>            
         </echoxml> 
     </target>
+    
+    <target name="install-virgo" depends="gen-ivy-settings" unless="skip.virgo.install">
+        <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
+        <unzip dest="${tools.home}">
+            <ivy:resources>
+                <dependency org="org.eclipse" name="virgo-nano" rev="${virgo.install.version}" >
+                    <artifact name="virgo-nano" type="zip" />
+                </dependency>
+            </ivy:resources>
+        </unzip>
+    </target>
 
     <target name="download-maven" unless="skip.download">
         <mkdir dir="${downloads.dir}"/>
@@ -110,6 +125,14 @@
         </antcall>        
     </target>    
     
+    <target name="srmq-nlp-tokenizers-package" depends="clone-repos">
+        <antcall target="run-mvn-goals">
+            <param name="exec_dir" value="${basedir}/srmq-nlp-tokenizers" />
+            <param name="p_goals" value="package"/>
+        </antcall>        
+    </target>    
+    
+    
     <target name="download-ivy" unless="skip.download">
         <mkdir dir="${ivy.jar.dir}"/>
         <!-- download Ivy from web site so that it can be used even without any special installation -->
@@ -136,6 +159,7 @@
 
     <target name="clean-repos" unless="skip.clean.repos">
         <delete dir="supersense-tagger-service" />
+        <delete dir="srmq-nlp-tokenizers" />
     </target>
     
     <target name="clone-repos" depends="gen-ivy-settings,clean-repos">
@@ -152,5 +176,9 @@
         <git:git directory="supersense-tagger-service" verbose="true">
             <git:clone uri="https://github.com/srmq/supersense-tagger-service.git"/>
         </git:git>
+        
+        <git:git directory="srmq-nlp-tokenizers" verbose="true">
+            <git:clone uri="https://github.com/srmq/srmq-nlp-tokenizers.git"/>
+        </git:git>        
     </target>
 </project>
