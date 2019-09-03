@@ -15,7 +15,22 @@
 
     <condition property="isUnix">
         <os family="unix" />
-    </condition>    
+    </condition>
+    
+    <target name="virgo-pickup-check">
+        <condition property="pickup.exists">
+            <available file="${tools.home}/virgo-nano-${virgo.install.version}/pickup" type="dir" />
+        </condition>
+    </target>
+    
+    <target name="virgo-clean-pickup" depends="virgo-pickup-check" unless="skip.clean.pickup" if="pickup.exists"> 
+        <delete>
+            <fileset dir="${tools.home}/virgo-nano-${virgo.install.version}/pickup">
+                <include name="**/*.jar" />
+                <exclude name="**/*virgo.management.console*" />
+            </fileset>
+        </delete>
+    </target>
   
     <target name="gen-ivy-settings" depends="install-ivy">
         <mkdir dir="${ivy.conf.dir}" />
@@ -23,9 +38,7 @@
             <ivysettings>
                 <resolvers>
                     <chain name="default-chain">
-                        <url name="srmq-maven-repo" m2compatible="true">
-                            <artifact pattern="https://srmq-maven-repo.appspot.com/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"/>
-                        </url>
+                        <ibiblio name="srmq-maven-repo" m2compatible="true" usepoms="true" pattern="[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]" root="https://srmq-maven-repo.appspot.com" />
                         <ibiblio name="public" m2compatible="true"/>
                         <url name="sonatype-snapshots" m2compatible="true">
                             <artifact pattern="https://oss.sonatype.org/content/repositories/snapshots/[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]"/>
@@ -77,10 +90,26 @@
         </echoxml> 
     </target>
     
+    <target name="install-multilex-resources" depends="gen-ivy-settings,srmq-nlp-tokenizers-package,install-virgo">
+        <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
+        <antcall target="virgo-clean-pickup" />
+        <ivy:resolve resolveId="multilex-pickup-resources" keep="true">
+            <dependency org="br.cin.ufpe.nlp" name="srmq-nlp-api" rev="0.0.1-SNAPSHOT" transitive="false"/>
+            <dependency org="br.cin.ufpe.nlp" name="srmq-nlp-util" rev="0.0.1-SNAPSHOT" transitive="false"/>
+            <dependency org="br.cin.ufpe.nlp" name="srmq-nlp-multilex-tokenization" rev="0.0.1-SNAPSHOT" transitive="false"/>
+        </ivy:resolve>
+        <copy todir="${tools.home}/virgo-nano-${virgo.install.version}/pickup">
+            <ivy:resources resolveId="multilex-pickup-resources" />
+        </copy>
+        <copy todir="${tools.home}/virgo-nano-${virgo.install.version}/pickup" >
+            <fileset dir="srmq-nlp-tokenizers/target" includes="**/srmq-nlp-tokenizers-*.jar" />
+        </copy>
+    </target>
+    
     <target name="install-virgo" depends="gen-ivy-settings" unless="skip.virgo.install">
         <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
         <unzip dest="${tools.home}">
-            <ivy:resources>
+            <ivy:resources resolveId="eclipse-virgo">
                 <dependency org="org.eclipse" name="virgo-nano" rev="${virgo.install.version}" >
                     <artifact name="virgo-nano" type="zip" />
                 </dependency>
