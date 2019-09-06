@@ -1,6 +1,17 @@
 <project name="multilex-experiment" default="go" xmlns:ivy="antlib:org.apache.ivy.ant" xmlns:git="antlib:com.rimerosolutions.ant.git">
+<!--     <ivy:resolve resolveId="echoxmlcp" keep="true">
+        <dependency org="xml-apis" name="xml-apis" rev="1.4.01" transitive="true"/>
+     </ivy:resolve>
+     <ivy:cachepath pathid="echoxmlcp" />
+     <classpath>
+        <pathelement path="${java.class.path}/"/>
+        <path refid="echoxmlcp"/>
+     </classpath>
+     -->
+
     <property name="ivy.install.version" value="2.4.0"/>
     <property name="virgo.install.version" value="3.7.2.RELEASE"/>
+    <property name="tools.home" value="${basedir}/tools" />
     <property name="virgo.install.home" value="${tools.home}/virgo-nano-${virgo.install.version}" />
     <property name="ivy.jar.dir" value="${basedir}/ivy"/>
     <property name="ivy.jar.file" value="${ivy.jar.dir}/ivy.jar"/>
@@ -8,7 +19,6 @@
     <property name="downloads.dir" value="${basedir}/downloads" />
     <property name="maven3.install.version" value="3.6.1" />
     <property name="maven3.zip.file" value="${downloads.dir}/maven3.zip" />
-    <property name="tools.home" value="${basedir}/tools" />
     <property name="supersense.tagger.service.dir" value="${basedir}/supersense-tagger-service" />
     <property name="20newsgroups.data.dir" value="${downloads.dir}/20newsgroups-noheaders" />
 
@@ -20,13 +30,34 @@
         <os family="unix" />
     </condition>
     
-    <target name="virgo-pickup-check">
-        <condition property="pickup.exists">
+    <condition property="virgo.pickup.exists">
             <available file="${virgo.install.home}/pickup" type="dir" />
-        </condition>
-    </target>
+    </condition>
     
-    <target name="virgo-clean-pickup" depends="virgo-pickup-check" unless="skip.clean.pickup" if="pickup.exists"> 
+    <condition property="skip.virgo.install">
+        <available file="${virgo.install.home}/bin" type="dir" />
+    </condition>
+    
+    <condition property="skip.clone.repos">
+        <and>
+            <available file="${supersense.tagger.service.dir}/.git" type="dir" />
+            <available file="${basedir}/srmq-nlp-tokenizers/.git" type="dir" />
+        </and>
+    </condition>
+    
+    <condition property="skip.ivy.install">
+        <available file="${ivy.jar.file}" type="file" />
+    </condition>
+    
+    <condition property="skip.nlp.tokenizers.package">
+        <available file="${basedir}/srmq-nlp-tokenizers/target/srmq-nlp-tokenizers-0.0.1-SNAPSHOT.jar" type="file" />
+    </condition>
+    
+    <condition property="skip.download.20newsgroups">
+        <available file="${20newsgroups.data.dir}" type="dir" />
+    </condition>
+    
+    <target name="virgo-clean-pickup" if="virgo.pickup.exists"> 
         <delete>
             <fileset dir="${tools.home}/virgo-nano-${virgo.install.version}/pickup">
                 <include name="**/*.jar" />
@@ -86,14 +117,14 @@
 
                     <dependency org="com.rimerosolutions.ant" 
                                 name="ant-git-tasks"
-                                rev="1.0.3-SNAPSHOT" 
-                                changing="true" conf="git-task->default" />
+                                rev="1.3.2" 
+                                conf="git-task->default" />
                 </dependencies>
             </ivy-module>            
         </echoxml> 
     </target>
     
-    <target name="install-multilex-resources" depends="gen-ivy-settings,srmq-nlp-tokenizers-package,install-virgo">
+    <target name="install-multilex-resources" depends="gen-ivy-settings,srmq-nlp-tokenizers-package,install-virgo,check-virgo-pickup-populated" unless="virgo.pickup.ispopulated">
         <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
         <antcall target="virgo-clean-pickup" />
         <ivy:resolve resolveId="multilex-pickup-resources" keep="true">
@@ -109,7 +140,7 @@
         </copy>
     </target>
     
-    <target name="install-20newsgroups-dataset" depends="gen-ivy-settings">
+    <target name="install-20newsgroups-dataset" depends="gen-ivy-settings" unless="skip.download.20newsgroups">
         <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
         <unzip dest="${20newsgroups.data.dir}">
             <ivy:resources resolveId="20newsgroups-dataset">
@@ -152,6 +183,11 @@
     <target name="virgo_unix_setup" if="isUnix" depends="shell_unix_setup">
         <property name="virgo.executable" value="${virgo.install.home}/bin/startup.sh" />
         <chmod file="${virgo.executable}" perm="ugo+rx" />
+        <chmod file="${virgo.install.home}/bin/checkJava.sh" perm="ugo+rx" />
+        <chmod file="${virgo.install.home}/bin/dmk.sh" perm="ugo+rx" />
+        <chmod file="${virgo.install.home}/bin/jconsole.sh" perm="ugo+rx" />
+        <chmod file="${virgo.install.home}/bin/setupClasspath.sh" perm="ugo+rx" />
+        <chmod file="${virgo.install.home}/bin/shutdown.sh" perm="ugo+rx" />
     </target>
     
     <target name="run-virgo-goals" depends="virgo_windows_setup,virgo_unix_setup">
@@ -175,16 +211,29 @@
             <arg line="${shell.args} '${tools.home}/apache-maven-${maven3.install.version}/bin/mvn ${p_goals}'" />
         </exec>
     </target>
+    
+    <target name="check-virgo-pickup-populated">
+        <condition property="virgo.pickup.ispopulated">
+            <resourcecount when="greater" count="4">
+                <fileset file="${virgo.install.home}/pickup/*.jar"/>
+            </resourcecount>        
+        </condition>        
+    </target>
+    
+    <target name="check-supersense-package">
+        <condition property="skip.supersense.package">
+            <available file="${supersense.tagger.service.dir}/target/supersense-tagger-service-0.0.1-SNAPSHOT.jar" type="file" />
+        </condition>        
+    </target>
 
-    <target name="supersense-tagger-service-package" depends="clone-repos">
+    <target name="supersense-tagger-service-package" depends="clone-repos,check-supersense-package" unless="skip.supersense.package">
         <antcall target="run-mvn-goals">
             <param name="exec_dir" value="${supersense.tagger.service.dir}" />
             <param name="p_goals" value="package"/>
         </antcall>        
     </target>
 
-    <target name="run-multilex-20newsgroups">
-        <antcall target="supersense-tagger-service-package" />
+    <target name="run-multilex-20newsgroups" depends="supersense-tagger-service-package,install-multilex-resources,install-20newsgroups-dataset">
         <parallel>
             <daemons>
                 <antcall target="run-supersense-tagger-server" />
@@ -193,8 +242,8 @@
                 <sleep seconds="20" />
                 <echo message="running multilex on 20newsgroups..."/>
                 <antcall target="run-virgo-goals">
-                    <param name="virgo_args" value="XXX FIXME workinprogress"/>
-                </antcall>        
+                    <param name="virgo_args" value=""/>
+                </antcall>
             </sequential>
         </parallel>
     </target>
@@ -213,7 +262,7 @@
 
     
     
-    <target name="srmq-nlp-tokenizers-package" depends="clone-repos">
+    <target name="srmq-nlp-tokenizers-package" depends="clone-repos" unless="skip.nlp.tokenizers.package">
         <antcall target="run-mvn-goals">
             <param name="exec_dir" value="${basedir}/srmq-nlp-tokenizers" />
             <param name="p_goals" value="package"/>
@@ -221,7 +270,7 @@
     </target>    
     
     
-    <target name="download-ivy" unless="skip.download">
+    <target name="download-ivy" unless="skip.download.ivy">
         <mkdir dir="${ivy.jar.dir}"/>
         <!-- download Ivy from web site so that it can be used even without any special installation -->
         <echo message="installing ivy..."/>
@@ -229,7 +278,7 @@
              dest="${ivy.jar.file}" usetimestamp="true"/>    
     </target>
     
-    <target name="install-ivy" depends="download-ivy" description="--> install ivy">
+    <target name="install-ivy" depends="download-ivy" description="--> install ivy" unless="skip.ivy.install">
         <!-- try to load Ivy here from local Ivy dir, in case the user has not already dropped
              it into Ant's lib dir (note that the latter copy will always take precedence).
              We will not fail as long as local lib dir exists (it may be empty) and
@@ -245,12 +294,12 @@
         <echo message="Hello world!"/>
     </target>
 
-    <target name="clean-repos" unless="skip.clean.repos">
+    <target name="clean-repos">
         <delete dir="supersense-tagger-service" />
         <delete dir="srmq-nlp-tokenizers" />
     </target>
     
-    <target name="clone-repos" depends="gen-ivy-settings,clean-repos">
+    <target name="clone-repos" depends="gen-ivy-settings" unless="skip.clone.repos">
         <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
         <ivy:resolve file="${ivy.conf.dir}/ivy-git-tasks.xml" conf="git-task" />
         <ivy:cachepath pathid="git.task.classpath" conf="git-task" />
