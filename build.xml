@@ -1,6 +1,7 @@
 <project name="multilex-experiment" default="go" xmlns:ivy="antlib:org.apache.ivy.ant" xmlns:git="antlib:com.rimerosolutions.ant.git">
     <property name="ivy.install.version" value="2.4.0"/>
     <property name="virgo.install.version" value="3.7.2.RELEASE"/>
+    <property name="virgo.install.home" value="${tools.home}/virgo-nano-${virgo.install.version}" />
     <property name="ivy.jar.dir" value="${basedir}/ivy"/>
     <property name="ivy.jar.file" value="${ivy.jar.dir}/ivy.jar"/>
     <property name="ivy.conf.dir" value="${ivy.jar.dir}/conf" />
@@ -8,6 +9,8 @@
     <property name="maven3.install.version" value="3.6.1" />
     <property name="maven3.zip.file" value="${downloads.dir}/maven3.zip" />
     <property name="tools.home" value="${basedir}/tools" />
+    <property name="supersense.tagger.service.dir" value="${basedir}/supersense-tagger-service" />
+    <property name="20newsgroups.data.dir" value="${downloads.dir}/20newsgroups-noheaders" />
 
     <condition property="isWindows">
         <os family="windows" />
@@ -19,7 +22,7 @@
     
     <target name="virgo-pickup-check">
         <condition property="pickup.exists">
-            <available file="${tools.home}/virgo-nano-${virgo.install.version}/pickup" type="dir" />
+            <available file="${virgo.install.home}/pickup" type="dir" />
         </condition>
     </target>
     
@@ -106,6 +109,17 @@
         </copy>
     </target>
     
+    <target name="install-20newsgroups-dataset" depends="gen-ivy-settings">
+        <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
+        <unzip dest="${20newsgroups.data.dir}">
+            <ivy:resources resolveId="20newsgroups-dataset">
+                <dependency org="br.cin.ufpe.nlp" name="20newsgroups-noheaders" rev="1.0.0" >
+                    <artifact name="20newsgroups-noheaders" type="zip" />
+                </dependency>
+            </ivy:resources>
+        </unzip>
+    </target>
+    
     <target name="install-virgo" depends="gen-ivy-settings" unless="skip.virgo.install">
         <ivy:settings file="${ivy.conf.dir}/ivysettings.xml"/>
         <unzip dest="${tools.home}">
@@ -128,31 +142,76 @@
     <target name="install-maven" depends="download-maven">
         <mkdir dir="${tools.home}" />
         <unzip src="${maven3.zip.file}" dest="${tools.home}" />
-    </target>
-
-    <target name="mvn_windows_setup" if="isWindows" depends="install-maven">
-        <property name="mvn.executable" value="cmd" />
-        <property name="mvn.args" value="/c" />
-    </target>
-
-    <target name="mvn_unix_setup" if="isUnix" depends="install-maven">
         <chmod file="${tools.home}/apache-maven-${maven3.install.version}/bin/mvn" perm="ugo+rx" />
-        <property name="mvn.executable" value="sh" />
-        <property name="mvn.args" value="-c" />
+    </target>
+    
+    <target name="virgo_windows_setup" if="isWindows" depends="shell_windows_setup">
+        <property name="virgo.executable" value="${virgo.install.home}/bin/startup.bat" />
+    </target>
+    
+    <target name="virgo_unix_setup" if="isUnix" depends="shell_unix_setup">
+        <property name="virgo.executable" value="${virgo.install.home}/bin/startup.sh" />
+        <chmod file="${virgo.executable}" perm="ugo+rx" />
+    </target>
+    
+    <target name="run-virgo-goals" depends="virgo_windows_setup,virgo_unix_setup">
+        <exec dir="${virgo.install.home}" executable="${shell.executable}">
+            <arg line="${shell.args} '${virgo.executable} ${virgo_args}'" />
+        </exec>
     </target>
 
-    <target name="run-mvn-goals" depends="mvn_windows_setup, mvn_unix_setup">
-        <exec dir="${exec_dir}" executable="${mvn.executable}">
-            <arg line="${mvn.args} '${tools.home}/apache-maven-${maven3.install.version}/bin/mvn ${p_goals}'" />
+    <target name="shell_windows_setup" if="isWindows">
+        <property name="shell.executable" value="cmd" />
+        <property name="shell.args" value="/c" />
+    </target>
+
+    <target name="shell_unix_setup" if="isUnix">
+        <property name="shell.executable" value="sh" />
+        <property name="shell.args" value="-c" />
+    </target>
+
+    <target name="run-mvn-goals" depends="install-maven,shell_windows_setup, shell_unix_setup">
+        <exec dir="${exec_dir}" executable="${shell.executable}">
+            <arg line="${shell.args} '${tools.home}/apache-maven-${maven3.install.version}/bin/mvn ${p_goals}'" />
         </exec>
     </target>
 
     <target name="supersense-tagger-service-package" depends="clone-repos">
         <antcall target="run-mvn-goals">
-            <param name="exec_dir" value="${basedir}/supersense-tagger-service" />
+            <param name="exec_dir" value="${supersense.tagger.service.dir}" />
             <param name="p_goals" value="package"/>
         </antcall>        
-    </target>    
+    </target>
+
+    <target name="run-multilex-20newsgroups">
+        <antcall target="supersense-tagger-service-package" />
+        <parallel>
+            <daemons>
+                <antcall target="run-supersense-tagger-server" />
+            </daemons>
+            <sequential>
+                <sleep seconds="20" />
+                <echo message="running multilex on 20newsgroups..."/>
+                <antcall target="run-virgo-goals">
+                    <param name="virgo_args" value="XXX FIXME workinprogress"/>
+                </antcall>        
+            </sequential>
+        </parallel>
+    </target>
+    
+
+    <target name="run-supersense-tagger-server">
+        <java dir="${supersense.tagger.service.dir}" jar="${supersense.tagger.service.dir}/target/supersense-tagger-service-0.0.1-SNAPSHOT.jar" maxmemory="256m" fork="true" failonerror="true">
+            <arg value="--server.port=8081" />
+            <arg value="--model=./models/superSenseModelAllSemcor.ser.gz" />
+            <classpath>
+                <pathelement location="${supersense.tagger.service.dir}/target/supersense-tagger-service-0.0.1-SNAPSHOT.jar" />
+                <pathelement path="${java.class.path}" />
+            </classpath>
+        </java>
+    </target>
+
+    
     
     <target name="srmq-nlp-tokenizers-package" depends="clone-repos">
         <antcall target="run-mvn-goals">
