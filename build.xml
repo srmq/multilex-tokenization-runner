@@ -35,10 +35,6 @@
         </and>
     </condition>
     
-    <condition property="skip.ivy.install">
-        <available file="${ivy.jar.file}" type="file" />
-    </condition>
-    
     <condition property="skip.nlp.tokenizers.package">
         <available file="${basedir}/srmq-nlp-tokenizers/target/srmq-nlp-tokenizers-0.0.1-SNAPSHOT.jar" type="file" />
     </condition>
@@ -269,7 +265,7 @@
              dest="${ivy.jar.file}" usetimestamp="true"/>    
     </target>
     
-    <target name="install-ivy" depends="download-ivy" description="--> install ivy" unless="skip.ivy.install">
+    <target name="install-ivy" depends="download-ivy" description="--> install ivy" >
         <!-- try to load Ivy here from local Ivy dir, in case the user has not already dropped
              it into Ant's lib dir (note that the latter copy will always take precedence).
              We will not fail as long as local lib dir exists (it may be empty) and
