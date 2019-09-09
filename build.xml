@@ -1,14 +1,4 @@
 <project name="multilex-experiment" default="go" xmlns:ivy="antlib:org.apache.ivy.ant" xmlns:git="antlib:com.rimerosolutions.ant.git">
-<!--     <ivy:resolve resolveId="echoxmlcp" keep="true">
-        <dependency org="xml-apis" name="xml-apis" rev="1.4.01" transitive="true"/>
-     </ivy:resolve>
-     <ivy:cachepath pathid="echoxmlcp" />
-     <classpath>
-        <pathelement path="${java.class.path}/"/>
-        <path refid="echoxmlcp"/>
-     </classpath>
-     -->
-
     <property name="ivy.install.version" value="2.4.0"/>
     <property name="virgo.install.version" value="3.7.2.RELEASE"/>
     <property name="tools.home" value="${basedir}/tools" />
@@ -192,6 +182,7 @@
     
     <target name="run-virgo-goals" depends="virgo_windows_setup,virgo_unix_setup">
         <exec dir="${virgo.install.home}" executable="${shell.executable}">
+            <env key="JAVA_HOME" value="/dev/shm/jdk8u222-b10" />
             <arg line="${shell.args} '${virgo.executable} ${virgo_args}'" />
         </exec>
     </target>
