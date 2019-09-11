@@ -178,7 +178,9 @@
     
     <target name="run-virgo-goals" depends="virgo_windows_setup,virgo_unix_setup">
         <exec dir="${virgo.install.home}" executable="${shell.executable}">
-            <env key="JAVA_HOME" value="/dev/shm/jdk8u222-b10" />
+            <env key="MULTILEX_INPUTPATH" value="${inputdir}" />
+            <env key="MULTILEX_OUTPUTPATH" value="${outputdir}" />
+            <env key="MULTILEX_LEXLEVELS" value="${lexlevels}" />
             <arg line="${shell.args} '${virgo.executable} ${virgo_args}'" />
         </exec>
     </target>
@@ -221,6 +223,10 @@
     </target>
 
     <target name="run-multilex-20newsgroups" depends="supersense-tagger-service-package,install-multilex-resources,install-20newsgroups-dataset">
+        <property name="inputdir" value="${20newsgroups.data.dir}" />
+        <property name="outputdir" value="output-20newsgroups" />
+        <property name="lexlevels" value="words,lemmas,ssenses" />
+        <mkdir dir="${outputdir}" />
         <parallel>
             <daemons>
                 <antcall target="run-supersense-tagger-server" />
@@ -228,6 +234,9 @@
             <sequential>
                 <sleep seconds="20" />
                 <echo message="running multilex on 20newsgroups..."/>
+                <echo message="Input: ${inputdir}" />
+                <echo message="Output: ${outputdir}" />
+                <echo message="Lexlevels: ${lexlevels}" />
                 <antcall target="run-virgo-goals">
                     <param name="virgo_args" value=""/>
                 </antcall>

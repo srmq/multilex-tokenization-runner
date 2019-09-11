@@ -1,1 +1,7 @@
 /ivy
+.build.xml.*
+/downloads
+/output
+/srmq-nlp-tokenizers
+/supersense-tagger-service
+/tools
