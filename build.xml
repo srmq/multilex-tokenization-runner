@@ -246,7 +246,7 @@
     
 
     <target name="run-supersense-tagger-server">
-        <java dir="${supersense.tagger.service.dir}" jar="${supersense.tagger.service.dir}/target/supersense-tagger-service-0.0.1-SNAPSHOT.jar" maxmemory="256m" fork="true" failonerror="true">
+        <java dir="${supersense.tagger.service.dir}" jar="${supersense.tagger.service.dir}/target/supersense-tagger-service-0.0.1-SNAPSHOT.jar" maxmemory="1024m" fork="true" failonerror="true">
             <arg value="--server.port=8081" />
             <arg value="--model=./models/superSenseModelAllSemcor.ser.gz" />
             <classpath>
