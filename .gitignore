@@ -5,3 +5,6 @@
 /srmq-nlp-tokenizers
 /supersense-tagger-service
 /tools
+.project
+.classpath
+/.settings
