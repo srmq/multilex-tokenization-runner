@@ -222,6 +222,10 @@
         </antcall>        
     </target>
 
+    <!--
+    Example for running:
+    ant run-multilex-20newsgroups -Dinputdir=`pwd`/downloads/20newsgroups-noheaders -Doutputdir=`pwd`/output -Dlexlevels="words,lemmas,ssenses"    
+    -->
     <target name="run-multilex-20newsgroups" depends="supersense-tagger-service-package,install-multilex-resources,install-20newsgroups-dataset">
         <property name="inputdir" value="${20newsgroups.data.dir}" />
         <property name="outputdir" value="output-20newsgroups" />
@@ -244,6 +248,22 @@
         </parallel>
     </target>
     
+    <!-- Exemplo:
+        ant after-multilex-cleanzero -Dparentdir=`pwd`/output
+    
+    -->
+    <target name="after-multilex-cleanzero" depends="package-multilex-cleanzero">
+        <property name="parentdir" value="null" />
+        <property name="logFile" value="${basedir}/deletedFiles.txt" />
+        <java classname="org.srmq.util.MultilexCleanEmpty">
+            <arg value="${parentdir}" />
+            <arg value="${logFile}" />
+            <classpath>
+                <pathelement location="${basedir}/target/srmq-nlp-multilex-runner-0.0.1-SNAPSHOT-jar-with-dependencies.jar" />
+                <pathelement path="${java.class.path}" />
+            </classpath>
+        </java>
+    </target>
 
     <target name="run-supersense-tagger-server">
         <java dir="${supersense.tagger.service.dir}" jar="${supersense.tagger.service.dir}/target/supersense-tagger-service-0.0.1-SNAPSHOT.jar" maxmemory="1024m" fork="true" failonerror="true">
@@ -264,6 +284,14 @@
             <param name="p_goals" value="package"/>
         </antcall>        
     </target>    
+    
+    <target name="package-multilex-cleanzero" depends="gen-ivy-settings" >
+        <antcall target="run-mvn-goals">
+            <param name="exec_dir" value="${basedir}" />
+            <param name="p_goals" value="package"/>
+        </antcall>        
+    </target>    
+    
     
     
     <target name="download-ivy" unless="skip.download.ivy">
